@@ -1,4 +1,4 @@
-8package main
+package main
 
 import "math"
 import "fmt"
