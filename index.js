@@ -8,7 +8,7 @@ const firewall = new gcp.compute.Firewall("camera-server-firewall", {
     network: network.id,
     allows: [{
         protocol: "tcp",
-        ports: [ "22", "20", "21", "990", "40000-50000", "8000" ],
+        ports: [ "22", "21", "21000-21010", "8000" ],
     }],
 });
 
@@ -24,8 +24,7 @@ const dataDisk = new gcp.compute.Disk("camera-server-data", {
 
 const startupScript = `#!/bin/bash
 sudo mount /dev/sdb /mnt/disks/camera-server-data/
-sudo mkdir /mnt/disks/camera-server-data/upload
-docker run --rm -d -p 21:21 -p 4559-4564:4559-4564 -v /mnt/disks/camera-server-data:/srv -e FTP_USER=tom -e FTP_PASSWORD=12345678 docker.io/panubo/vsftpd:latest
+docker run --rm -d -p 21:21 -p 21000-21010:21000-21010 -v /mnt/disks/camera-server-data:/ftp/tom/upload -e USERS="tom|12345678" delfer/alpine-ftp-server
 `;
 
 const vm = new gcp.compute.Instance("camera-server", {
@@ -52,7 +51,7 @@ const vm = new gcp.compute.Instance("camera-server", {
     stdin: false
     tty: false
     volumeMounts:
-    - mountPath: /home/tom/ftp/upload/
+    - mountPath: /home/tom/ftp/upload
       name: host-path-0
       readOnly: true
   restartPolicy: Always
