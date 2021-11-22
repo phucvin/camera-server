@@ -1,32 +1,73 @@
 const gcp = require("@pulumi/gcp");
 
-// Create a network
-const network = new gcp.compute.Network("test-network");
-const firewall = new gcp.compute.Firewall("test-firewall", {
+const zone = "us-west1-b";
+const containerImage = "us-west1-docker.pkg.dev/phucvin/my-container-repo/camera-server";
+
+const network = new gcp.compute.Network("camera-server-network");
+const firewall = new gcp.compute.Firewall("camera-server-firewall", {
     network: network.id,
     allows: [{
         protocol: "tcp",
-        ports: [ "22", "80" ],
+        ports: [ "22", "20", "21", "990", "40000-50000", "8000" ],
     }],
+});
+
+const bootDisk = new gcp.compute.Disk("camera-server", {
+    zone: zone,
+    image: "projects/cos-cloud/global/images/family/cos-stable",
+});
+
+const dataDisk = new gcp.compute.Disk("camera-server-data", {
+    zone: zone,
+    size: 10,
 });
 
 const startupScript = `#!/bin/bash
-echo "Hello, World!" > index.html
-nohup python -m SimpleHTTPServer 80 &`;
+sudo mount /dev/sdb /mnt/disks/camera-server-data/
+sudo mkdir /mnt/disks/camera-server-data/upload
+docker run --rm -d -p 21:21 -p 4559-4564:4559-4564 -v /mnt/disks/camera-server-data:/srv -e FTP_USER=tom -e FTP_PASSWORD=12345678 docker.io/panubo/vsftpd:latest
+`;
 
-// Create a Virtual Machine Instance
-const computeInstance = new gcp.compute.Instance("test-instance", {
-    machineType: "f1-micro",
-    zone: "us-west1-b",
-    bootDisk: { initializeParams: { image: "debian-cloud/debian-9" } },
+const vm = new gcp.compute.Instance("camera-server", {
+    allowStoppingForUpdate: true,
+    machineType: "e2-micro",
+    zone: zone,
+    bootDisk: { source: bootDisk.id },
+    attachedDisks: [
+        { source: dataDisk.id },
+    ],
     networkInterfaces: [{
         network: network.id,
-        // accessConfigus must includ a single empty config to request an ephemeral IP
         accessConfigs: [{}],
     }],
     metadataStartupScript: startupScript,
+    metadata: {
+        "gce-container-declaration":
+`spec:
+  containers:
+  - image: ${containerImage}
+    name: camera-web-server
+    securityContext:
+      privileged: false
+    stdin: false
+    tty: false
+    volumeMounts:
+    - mountPath: /home/tom/ftp/upload/
+      name: host-path-0
+      readOnly: true
+  restartPolicy: Always
+  volumes:
+  - hostPath:
+      path: /mnt/disks/camera-server-data/
+    name: host-path-0
+`,
+    },
+    serviceAccount: {
+        scopes: [
+            "cloud-platform",
+        ],
+    },
 });
 
-// Export the name and IP address of the Instance
-exports.instanceName = computeInstance.name;
-exports.instanceIP = computeInstance.networkInterfaces.apply(ni => ni[0].accessConfigs[0].natIp);
+exports.vmName = vm.name;
+exports.vmIP = vm.networkInterfaces.apply(ni => ni[0].accessConfigs[0].natIp);

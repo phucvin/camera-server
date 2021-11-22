@@ -100,5 +100,6 @@ func viewh(w http.ResponseWriter, r *http.Request) {
 func main() {
         http.HandleFunc("/", indexh)
         http.HandleFunc("/view", viewh)
+        
         panic(http.ListenAndServe("0.0.0.0:8000", nil))
 }
