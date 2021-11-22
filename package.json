@@ -1,0 +1,8 @@
+{
+    "name": "camera-server",
+    "main": "index.js",
+    "dependencies": {
+        "@pulumi/pulumi": "^3.0.0",
+        "@pulumi/gcp": "^5.0.0"
+    }
+}
