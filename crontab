@@ -22,3 +22,5 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 #
 
 * * * * * root /root/delete-on-low-disk-capacity.sh /home/tom/ftp/upload 90
+@reboot tom gcsfuse --key-file /home/phucvin/gcsfuse-sa-key.json  test-bucket-01-rderw /home/tom/ftp/upload
+@reboot root iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 8000
